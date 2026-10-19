@@ -18,7 +18,23 @@ jobs:
 
       - name: Extract Android project ZIP
         run: |
+          mkdir -p buildsrc
           unzip -o PixelStyleLauncher-GitHub.zip -d buildsrc
+          echo "ZIP contents:"
+          find buildsrc -maxdepth 4 -type f | head -100
+
+      - name: Locate Android project
+        id: project
+        run: |
+          FILE=$(find buildsrc -type f -name settings.gradle -print -quit)
+          if [ -z "$FILE" ]; then
+            echo "ERROR: settings.gradle not found."
+            find buildsrc -maxdepth 6 -type f
+            exit 1
+          fi
+          DIR=$(dirname "$FILE")
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          echo "Project found in: $DIR"
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -33,11 +49,12 @@ jobs:
 
       - name: Build APK
         run: |
-          cd buildsrc
+          cd "${{ steps.project.outputs.dir }}"
           gradle assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: PixelStyleLauncher-debug-apk
-          path: buildsrc/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.project.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
